@@ -1,3 +1,4 @@
+
 local version = "6.0.0"
 
 local defaults = {
@@ -130,19 +131,6 @@ loc["frFR"] = {
 local L = loc[GetLocale()];
 if (L == nil) then 
 	L = loc['enUS']; 
-end
---------------------------------------------------------------------------------
-local rangedSpellNames = {}
-local rangedSpellIDs = {75, 2480, 2764, 5019, 7918, 7919}
-for _, spellID in ipairs(rangedSpellIDs) do
-	local spellName = SpellInfo(spellID)
-	if spellName then
-		rangedSpellNames[spellName] = 1
-	end
-end
-
-local function IsRangedCastEvent(castType, spellName)
-	return castType == "CAST" and spellName and rangedSpellNames[spellName]
 end
 --------------------------------------------------------------------------------
 StaticPopupDialogs["SP_ST_Install"] = {
@@ -852,10 +840,22 @@ function SP_ST_OnEvent()
 				flurry_count = flurry_count - 1 -- normal swing occured, reduce flurry counter
 			end
 			return
-		elseif IsRangedCastEvent(arg3, spell) then
-			-- ranged shot / throw / wand shot
-			ResetTimer(nil,true)
-			return
+				elseif (arg3 == "CAST" or arg3 == "RANGED") then
+			-- ranged attacks: wand, bow, gun, crossbow, throw, autoshot
+			if arg4 == 5019 then
+				ResetTimer(nil,true)
+				return
+			end
+
+			if spell == "Shoot"
+			or spell == "Auto Shot"
+			or spell == "Shoot Bow"
+			or spell == "Shoot Gun"
+			or spell == "Shoot Crossbow"
+			or spell == "Throw" then
+				ResetTimer(nil,true)
+				return
+			end
 		end
 
 		-- check for attacks that take the place of autoattack
@@ -989,12 +989,13 @@ local function ChatHandler(msg)
 		print("toggled showing offhand: " .. (SP_ST_GS["show_oh"] and "on" or "off"))
 	elseif cmd == "range" then
 		SP_ST_GS["show_range"] = not SP_ST_GS["show_range"]
+		print("toggled showing range weapon: " .. (SP_ST_GS["show_range"] and "on" or "off"))
 		if SP_ST_GS["show_range"] and hasRanged() then
 			ResetTimer(nil, true)
 		else
 			SP_ST_FrameRange:Hide()
+			st_timerRange = 0
 		end
-		print("toggled showing range weapon: " .. (SP_ST_GS["show_range"] and "on" or "off"))
 	elseif settings[cmd] ~= nil then
 		if arg ~= nil then
 			local number = tonumber(arg)
