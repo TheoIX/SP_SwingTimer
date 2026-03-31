@@ -1,4 +1,3 @@
-
 local version = "6.0.0"
 
 local defaults = {
@@ -131,6 +130,19 @@ loc["frFR"] = {
 local L = loc[GetLocale()];
 if (L == nil) then 
 	L = loc['enUS']; 
+end
+--------------------------------------------------------------------------------
+local rangedSpellNames = {}
+local rangedSpellIDs = {75, 2480, 2764, 5019, 7918, 7919}
+for _, spellID in ipairs(rangedSpellIDs) do
+	local spellName = SpellInfo(spellID)
+	if spellName then
+		rangedSpellNames[spellName] = 1
+	end
+end
+
+local function IsRangedCastEvent(castType, spellName)
+	return castType == "CAST" and spellName and rangedSpellNames[spellName]
 end
 --------------------------------------------------------------------------------
 StaticPopupDialogs["SP_ST_Install"] = {
@@ -446,6 +458,9 @@ end
 
 local function TestShow()
 	ResetTimer(false)
+	if hasRanged() and SP_ST_GS["show_range"] then
+		ResetTimer(nil, true)
+	end
 end
 
 
@@ -656,7 +671,7 @@ function SP_ST_Check_Actions(slot)
 		if actionType and identifier and actionType == "SPELL" then
 			local name,rank,texture = SpellInfo(identifier)
 			if instants[name] then
-				range_check_slot = i
+				range_check_slot = slot
 				return -- done
 			end
 		end
@@ -750,7 +765,7 @@ function SP_ST_OnEvent()
 		UpdateAppearance()
 		if not st_timerMax then st_timerMax = GetWeaponSpeed(false) end
 		if not st_timerOffMax and isDualWield() then st_timerOffMax = GetWeaponSpeed(true) end
-		if not st_timerRangeMax and isDualWield() then st_timerRangeMax = GetWeaponSpeed(nil,true) end
+		if not st_timerRangeMax and hasRanged() then st_timerRangeMax = GetWeaponSpeed(nil,true) end
 		print("SP_SwingTimer " .. version .. " loaded. Options: /st")
 	elseif (event == "PLAYER_REGEN_ENABLED")
 		or (event == "PLAYER_ENTERING_WORLD") then
@@ -768,7 +783,7 @@ function SP_ST_OnEvent()
 		CheckFlurry()
 	elseif (event == "CHARACTER_POINTS_CHANGED") then
 		GetFlurry(player_class)
-	elseif (evet == "ACTIONBAR_SLOT_CHANGED") then
+	elseif (event == "ACTIONBAR_SLOT_CHANGED") then
 		SP_ST_Check_Actions(arg1)
 	elseif (event == "UNIT_CASTEVENT" and arg1 == player_guid) then
 		local spell = SpellInfo(arg4)
@@ -837,8 +852,8 @@ function SP_ST_OnEvent()
 				flurry_count = flurry_count - 1 -- normal swing occured, reduce flurry counter
 			end
 			return
-		elseif arg3 == "CAST" and arg4 == 5019 then
-			-- wand shoot, treat wand as offhand, no reason no to
+		elseif IsRangedCastEvent(arg3, spell) then
+			-- ranged shot / throw / wand shot
 			ResetTimer(nil,true)
 			return
 		end
@@ -974,6 +989,11 @@ local function ChatHandler(msg)
 		print("toggled showing offhand: " .. (SP_ST_GS["show_oh"] and "on" or "off"))
 	elseif cmd == "range" then
 		SP_ST_GS["show_range"] = not SP_ST_GS["show_range"]
+		if SP_ST_GS["show_range"] and hasRanged() then
+			ResetTimer(nil, true)
+		else
+			SP_ST_FrameRange:Hide()
+		end
 		print("toggled showing range weapon: " .. (SP_ST_GS["show_range"] and "on" or "off"))
 	elseif settings[cmd] ~= nil then
 		if arg ~= nil then
